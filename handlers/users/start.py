@@ -1,6 +1,6 @@
 from aiogram.types import Message
 from aiogram import F
-from loader import dp,db,bot,CHANNELS
+from loader import dp,db,bot,CHANNELS, ADMINS
 from aiogram.filters import CommandStart,Command,and_f
 from aiogram.types import InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -8,8 +8,16 @@ import time
 from aiogram.types import Message,ChatPermissions
 import logging
 import asyncio
+from filters.admin import IsBotAdminFilter
+
 
 logging.basicConfig(level=logging.INFO)
+
+group_stats = {
+    "added": 0,  # Guruhga qo'shilganlar soni
+    "left": 0,   # Guruhdan chiqib ketganlar soni
+    "added_by": {}  # Har bir foydalanuvchining qo'shgan odamlar soni
+}
 
 # /start komandasi
 @dp.message(CommandStart())
@@ -37,14 +45,23 @@ async def start_command(message: Message):
 # Guruhga yangi a'zo qo'shilganda
 @dp.message(F.new_chat_members)
 async def new_member(message: Message):
-    for user in message.new_chat_members:  # Bir nechta odam qo‘shilgan bo‘lishi mumkin
-        user_name = user.full_name
-        welcome_message = f"🎉 {user_name}, guruhimizga xush kelibsiz! 😊\nSiz bilan tanishishdan mamnunmiz! 🌟"
+    new_users = message.new_chat_members
+    inviter = message.from_user  # Kim qo'shganini tekshirish
     
-    await message.delete()  # "вступил(а) в группу" xabarini o‘chirish
-    sent_message = await message.answer(welcome_message)  # Bot yuborgan xabar
-    await asyncio.sleep(60)  # 60 soniya kutish
-    await sent_message.delete()  # Botning xabarini o‘chirish
+    for user in new_users:
+        group_stats["added"] += 1  # Qo‘shilganlar sonini oshiramiz
+        
+        if inviter and inviter.id != user.id:  # Agar o‘zi emas, boshqasi qo‘shgan bo‘lsa
+            if inviter.id not in group_stats["added_by"]:
+                group_stats["added_by"][inviter.id] = 0
+            group_stats["added_by"][inviter.id] += 1
+        await message.delete()
+        welcome_message = f"🎉 {user.full_name}, guruhimizga xush kelibsiz! 😊"
+        sent_message = await message.answer(welcome_message)
+        await asyncio.sleep(60)
+        await sent_message.delete()
+
+    await message.delete()
 
 # Guruhdan a'zo chiqib ketganda
 @dp.message(F.left_chat_member)
@@ -125,6 +142,7 @@ async def mute_user(message:Message):
 
 @dp.message(and_f(F.reply_to_message,F.text=="/unmute"))
 async def unmute_user(message:Message):
+    
     user_id =  message.reply_to_message.from_user.id
     permission = ChatPermissions(can_send_messages=True)
     await message.chat.restrict(user_id=user_id,permissions=permission)
@@ -162,3 +180,34 @@ async def tozalash(message: Message):
                 await message.answer(f"{message.from_user.mention_html()} 🚫 Siz guruhdan butunlay bloklandingiz!")
             
             break
+        
+@dp.message(F.text == "/stats", IsBotAdminFilter(ADMINS))
+async def group_statistics(message: Message):
+    total_added = group_stats["added"]
+    total_left = group_stats["left"]
+    
+    growth = 0
+    if total_added > 0:
+        growth = ((total_added - total_left) / total_added) * 100  # O‘sish foizi
+
+    added_by_list = []
+    
+    for user_id, count in group_stats["added_by"].items():
+        try:
+            chat_member = await bot.get_chat(user_id)  # Foydalanuvchi ismini olish
+            full_name = chat_member.full_name
+            added_by_list.append(f"👤 <a href='tg://user?id={user_id}'>{full_name}</a>: {count} kishi")
+        except Exception as e:
+            print(f"Xatolik: {e}")  # Xato chiqmasligi uchun
+
+    added_by_text = "\n".join(added_by_list) if added_by_list else "❌ Hech kim odam qo‘shmagan."
+
+    stats_message = (
+        f"📊 <b>Guruh statistikasi:</b>\n"
+        f"👥 Jami qo‘shilganlar: {total_added}\n"
+        f"🚪 Jami chiqib ketganlar: {total_left}\n"
+        f"📈 O‘sish foizi: {growth:.2f}%\n\n"
+        f"👤 <b>Eng ko‘p odam qo‘shganlar:</b>\n{added_by_text}"
+    )
+
+    await message.answer(stats_message, parse_mode="HTML")
