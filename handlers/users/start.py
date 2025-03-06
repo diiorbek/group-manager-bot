@@ -7,6 +7,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 import time
 from aiogram.types import Message,ChatPermissions
 import logging
+import asyncio
 
 logging.basicConfig(level=logging.INFO)
 
@@ -36,19 +37,27 @@ async def start_command(message: Message):
 # Guruhga yangi a'zo qo'shilganda
 @dp.message(F.new_chat_member)
 async def new_member(message: Message):
-    user = message.new_chat_member.get("first_name")
+    
+    user = message.new_chat_member.full_name
     welcome_message = f"🎉 {user}, guruhimizga xush kelibsiz! 😊\nSiz bilan tanishishdan mamnunmiz! 🌟"
-    await message.answer(welcome_message)
+    
     await message.delete()
+    
+    sent_message = await message.answer(welcome_message)
+    # Xabarni o'zgaruvchiga saqlaymiz
+    await asyncio.sleep(60)  # 60 sekund kutamiz
+    await sent_message.delete()  # Xabarni o‘chirib tashlaymiz
 
 # Guruhdan a'zo chiqib ketganda
 @dp.message(F.left_chat_member)
 async def member_left(message: Message):
+    
     user = message.left_chat_member.full_name
     goodbye_message = f"😢 {user}, siz bilan xayrlashamiz! 🌙\nYana qaytib kelishingizni kutamiz! 🙌"
-    await message.answer(goodbye_message)
     await message.delete()
-
+    sent_message = await message.answer(goodbye_message)  # Xabarni saqlash
+    await asyncio.sleep(60)  # 60 sekund kutish
+    await sent_message.delete()  # Xabarni o‘chirish
 
 # Adminlarni tekshirish uchun yordamchi funksiya
 async def is_admin(chat_id: int, user_id: int) -> bool:
@@ -80,66 +89,77 @@ async def set_group_link(message: Message):
 
 
 # Foydalanuvchini ban qilish
-@dp.message(Command('ban'))
-async def ban_user(message: Message):
-    if await is_admin(message.chat.id, message.from_user.id):
-        user_id = message.reply_to_message.from_user.id
-        await message.chat.ban_user(user_id)
-        await message.answer(f"🚫 {message.reply_to_message.from_user.first_name} guruhdan chiqarildi. ❌")
-        await message.delete()  # Xabarni o'chirish, foydalanuvchilar ko'rmasligi uchun
-    else:
-        await message.answer("⛔ Sizda bu kommandani bajarish uchun huquq yo'q!")
+@dp.message(F.new_chat_member)
+async def new_member(message:Message):
+    user = message.new_chat_member.get("first_name")
+    await message.answer(f"{user} Guruhga xush kelibsiz!")
+    await message.delete()
 
-# Foydalanuvchini unban qilish
-@dp.message(Command('unban'))
-async def unban_user(message: Message):
-    if await is_admin(message.chat.id, message.from_user.id):
-        user_id = message.reply_to_message.from_user.id
-        await message.chat.unban_user(user_id)
-        await message.answer(f"✅ {message.reply_to_message.from_user.first_name} guruhga qaytishingiz mumkin! 🎉")
-        await message.delete()  # Xabarni o'chirish, foydalanuvchilar ko'rmasligi uchun
-    else:
-        await message.answer("⛔ Sizda bu kommandani bajarish uchun huquq yo'q!")
+@dp.message(F.left_chat_member)
+async def new_member(message:Message):
+    # print(message.new_chat_member)
+    user = message.left_chat_member.full_name
+    await message.answer(f"{user} Xayr!")
+    await message.delete()
 
-# Foydalanuvchini mute qilish
-@dp.message(Command('mute'))
-async def mute_user(message: Message):
-    if await is_admin(message.chat.id, message.from_user.id):
-        user_id = message.reply_to_message.from_user.id
-        permission = ChatPermissions(can_send_messages=False)
-        until_date = int(time.time()) + 60  # 1 daqiqaga mute qilinadi
-        await message.chat.restrict(user_id=user_id, permissions=permission, until_date=until_date)
-        await message.answer(f"🔇 {message.reply_to_message.from_user.first_name} 1 daqiqaga bloklandi. ⏳")
-        await message.delete()  # Xabarni o'chirish, foydalanuvchilar ko'rmasligi uchun
-    else:
-        await message.answer("⛔ Sizda bu kommandani bajarish uchun huquq yo'q!")
+@dp.message(and_f(F.reply_to_message,F.text=="/ban"))
+async def ban_user(message:Message):
+    user_id =  message.reply_to_message.from_user.id
+    await message.chat.ban_sender_chat(user_id)
+    await message.answer(f"{message.reply_to_message.from_user.first_name} guruhdan chiqarib yuborilasiz.")
 
-# Foydalanuvchini unmute qilish
-@dp.message(Command('unmute'))
-async def unmute_user(message: Message):
-    if await is_admin(message.chat.id, message.from_user.id):
-        user_id = message.reply_to_message.from_user.id
-        permission = ChatPermissions(can_send_messages=True)
-        await message.chat.restrict(user_id=user_id, permissions=permission)
-        await message.answer(f"🔓 {message.reply_to_message.from_user.first_name} endi yozishingiz mumkin. 💬")
-        await message.delete()  # Xabarni o'chirish, foydalanuvchilar ko'rmasligi uchun
-    else:
-        await message.answer("⛔ Sizda bu kommandani bajarish uchun huquq yo'q!")
+@dp.message(and_f(F.reply_to_message,F.text=="/unban"))
+async def unban_user(message:Message):
+    user_id =  message.reply_to_message.from_user.id
+    await message.chat.unban_sender_chat(user_id)
+    await message.answer(f"{message.reply_to_message.from_user.first_name} guruhga qaytishingiz mumkin.")
 
+from time import time
+@dp.message(and_f(F.reply_to_message,F.text=="/mute"))
+async def mute_user(message:Message):
+    user_id =  message.reply_to_message.from_user.id
+    permission = ChatPermissions(can_send_messages=False)
 
-# Xaqoratli so'zlarni bloklash
-xaqoratli_sozlar = {"tentak", "ahmoq", "o'jar"}  # So'zlarni kengaytirish mumkin
-@dp.message(and_f(F.chat.func(lambda chat: chat.type == "supergroup"), F.text))
+    until_date = int(time()) + 300 # 1minut guruhga yoza olmaydi
+    await message.chat.restrict(user_id=user_id,permissions=permission,until_date=until_date)
+    await message.answer(f"{message.reply_to_message.from_user.first_name} 5 minutga blocklandingiz")
+
+@dp.message(and_f(F.reply_to_message,F.text=="/unmute"))
+async def unmute_user(message:Message):
+    user_id =  message.reply_to_message.from_user.id
+    permission = ChatPermissions(can_send_messages=True)
+    await message.chat.restrict(user_id=user_id,permissions=permission)
+    await message.answer(f"{message.reply_to_message.from_user.first_name} guruhga yoza olasiz")
+
+user_warnings = {}
+
+from time import time
+xaqoratli_sozlar = {"tentak","jinni", "to'poy", "axmoq", "iplos", "maraz", "ahmoq"}
+@dp.message(F.chat.func(lambda chat: chat.type == "supergroup"), F.text)
 async def tozalash(message: Message):
-    text = message.text
+    user_id = message.from_user.id
+    chat_id = message.chat.id
+    text = message.text.lower()
+
+    # Agar foydalanuvchi oldin so‘kingan bo‘lsa, uning ogohlantirish sonini oshiramiz
+    if user_id not in user_warnings:
+        user_warnings[user_id] = 0
+
+    # Xabarni xaqoratli so‘zlarga tekshiramiz
     for soz in xaqoratli_sozlar:
-        if soz in text.lower():
-            user_id = message.from_user.id
-            until_date = int(time.time()) + 60  # 5 daqiqaga mute qilinadi
-            permission = ChatPermissions(can_send_messages=False)
-            await message.chat.restrict(user_id=user_id, permissions=permission, until_date=until_date)
-            await message.answer(f"⚠️ {message.from_user.mention_html()} guruhda haqoratli so'z ishlatganingiz uchun 1 daqiqaga bloklandingiz. 🚫")
-            await message.delete()
+        if soz in text:
+            user_warnings[user_id] += 1  # Ogohlantirishni oshiramiz
+            await message.delete()  # So‘kinish xabarini o‘chirib tashlaymiz
+
+            if user_warnings[user_id] == 1:
+                await message.answer(f"{message.from_user.mention_html()} ❗ Bu birinchi ogohlantirish! Guruhda so‘kinmang.")
+            elif user_warnings[user_id] == 2:
+                until_date = int(time()) + 600  # 10 daqiqaga mute
+                permission = ChatPermissions(can_send_messages=False)
+                await message.chat.restrict(user_id=user_id, permissions=permission, until_date=until_date)
+                await message.answer(f"{message.from_user.mention_html()} 🔇 10 daqiqaga yozish huquqingiz cheklandi!")
+            elif user_warnings[user_id] >= 3:
+                await message.chat.ban_sender_chat(user_id)  # Butun umrga ban
+                await message.answer(f"{message.from_user.mention_html()} 🚫 Siz guruhdan butunlay bloklandingiz!")
+            
             break
-
-
