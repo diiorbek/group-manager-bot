@@ -35,29 +35,28 @@ async def start_command(message: Message):
 
 
 # Guruhga yangi a'zo qo'shilganda
-@dp.message(F.new_chat_member)
+@dp.message(F.new_chat_members)
 async def new_member(message: Message):
+    for user in message.new_chat_members:  # Bir nechta odam qo‘shilgan bo‘lishi mumkin
+        user_name = user.full_name
+        welcome_message = f"🎉 {user_name}, guruhimizga xush kelibsiz! 😊\nSiz bilan tanishishdan mamnunmiz! 🌟"
     
-    user = message.new_chat_member.full_name
-    welcome_message = f"🎉 {user}, guruhimizga xush kelibsiz! 😊\nSiz bilan tanishishdan mamnunmiz! 🌟"
-    
-    await message.delete()
-    
-    sent_message = await message.answer(welcome_message)
-    # Xabarni o'zgaruvchiga saqlaymiz
-    await asyncio.sleep(60)  # 60 sekund kutamiz
-    await sent_message.delete()  # Xabarni o‘chirib tashlaymiz
+    await message.delete()  # "вступил(а) в группу" xabarini o‘chirish
+    sent_message = await message.answer(welcome_message)  # Bot yuborgan xabar
+    await asyncio.sleep(60)  # 60 soniya kutish
+    await sent_message.delete()  # Botning xabarini o‘chirish
 
 # Guruhdan a'zo chiqib ketganda
 @dp.message(F.left_chat_member)
 async def member_left(message: Message):
+    user = message.left_chat_member  # Bu dict emas, balki User obyekti
+    user_name = user.full_name
+    goodbye_message = f"😢 {user_name}, siz bilan xayrlashamiz! 🌙\nYana qaytib kelishingizni kutamiz! 🙌"
     
-    user = message.left_chat_member.full_name
-    goodbye_message = f"😢 {user}, siz bilan xayrlashamiz! 🌙\nYana qaytib kelishingizni kutamiz! 🙌"
-    await message.delete()
-    sent_message = await message.answer(goodbye_message)  # Xabarni saqlash
-    await asyncio.sleep(60)  # 60 sekund kutish
-    await sent_message.delete()  # Xabarni o‘chirish
+    await message.delete()  # "покинул(а) группу" xabarini o‘chirish
+    sent_message = await message.answer(goodbye_message)  # Bot yuborgan xabar
+    await asyncio.sleep(60)  # 60 soniya kutish
+    await sent_message.delete()
 
 # Adminlarni tekshirish uchun yordamchi funksiya
 async def is_admin(chat_id: int, user_id: int) -> bool:
