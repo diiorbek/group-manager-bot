@@ -100,9 +100,12 @@ async def set_group_title(message: Message):
     if await is_admin(message.chat.id, message.from_user.id):
         title = message.text.split(maxsplit=1)[1]
         await message.chat.set_title(title)
-        await message.answer(f"Guruh nomi {title} qilib o'zgartirildi. ✅")
+        msg = await message.answer(f"Guruh nomi {title} qilib o'zgartirildi. ✅")
     else:
-        await message.answer("⛔ Sizda bu kommandani bajarish uchun huquq yo'q!")
+        msg = await message.answer("⛔ Sizda bu kommandani bajarish uchun huquq yo'q!")
+
+    await asyncio.sleep(60)
+    await msg.delete()
 
 # Guruh linkini o'zgartirish
 @dp.message(Command('set_link'))
@@ -111,24 +114,52 @@ async def set_group_link(message: Message):
         try:
             # Yangi taklif linkini yaratish
             new_link = await bot.export_chat_invite_link(message.chat.id)
-            await message.answer(f"Guruh linki muvaffaqiyatli yangilandi. 🔗 Yangi link: {new_link}")
+            msg = await message.answer(f"Guruh linki muvaffaqiyatli yangilandi. 🔗 Yangi link: {new_link}")
         except Exception as e:
-            await message.answer(f"⚠️ Xatolik yuz berdi: {str(e)}")
+            msg = await message.answer(f"⚠️ Xatolik yuz berdi: {str(e)}")
     else:
-        await message.answer("⛔ Sizda bu kommandani bajarish uchun huquq yo'q!")
-
+        msg = await message.answer("⛔ Sizda bu kommandani bajarish uchun huquq yo'q!")
+    
+    await asyncio.sleep(60)
+    await msg.delete()
+    
 # Foydalanuvchini ban qilish
 @dp.message(and_f(F.reply_to_message, F.text == "/ban"))
 async def ban_user(message: Message):
     user_id = message.reply_to_message.from_user.id
     await message.chat.ban_sender_chat(user_id)
-    await message.answer(f"{message.reply_to_message.from_user.first_name} guruhdan chiqarib yuborilasiz.")
+    txt = await message.answer(f"{message.reply_to_message.from_user.first_name} guruhdan chiqarib yuborilasiz.")
+    await asyncio.sleep(60)
+    await txt.delete()
 
 @dp.message(and_f(F.reply_to_message, F.text == "/unban"))
 async def unban_user(message: Message):
     user_id = message.reply_to_message.from_user.id
     await message.chat.unban_sender_chat(user_id)
-    await message.answer(f"{message.reply_to_message.from_user.first_name} guruhga qaytishingiz mumkin.")
+    msg = await message.answer(f"{message.reply_to_message.from_user.first_name} guruhga qaytishingiz mumkin.")
+    await asyncio.sleep(60)
+    await msg.delete()
+
+@dp.message(Command("mystats"))
+async def my_stats(message: Message):
+    user_id = message.from_user.id  # Foydalanuvchi ID-sini olish
+    cursor.execute('SELECT added_by FROM group_stats WHERE id = 1')
+    stats = cursor.fetchone()
+    
+    if stats and stats[0]:  # Agar ma'lumotlar mavjud bo'lsa
+        added_by_dict = eval(stats[0])  # JSON ni lug'atga aylantiramiz
+        user_count = added_by_dict.get(user_id, 0)  # Foydalanuvchi nechta odam qo'shganini topamiz
+        
+        msg = await message.answer(
+            f"📊 <b>Sizning statistikangiz:</b>\n"
+            f"👥 Siz jami {user_count} ta odam qo'shgansiz.\n\n"
+            f"🎉 Tabriklaymiz!", parse_mode="HTML"
+        )
+    else:
+        msg = await message.answer("❌ Statistika ma'lumotlari topilmadi.")
+        
+    await asyncio.sleep(60)
+    await msg.delete()
 
 from time import time
 
@@ -139,14 +170,20 @@ async def mute_user(message: Message):
 
     until_date = int(time()) + 300  # 1minut guruhga yoza olmaydi
     await message.chat.restrict(user_id=user_id, permissions=permission, until_date=until_date)
-    await message.answer(f"{message.reply_to_message.from_user.first_name} 5 minutga blocklandingiz")
+    msg = await message.answer(f"{message.reply_to_message.from_user.first_name} 5 minutga blocklandingiz")
+    await asyncio.sleep(60)
+    await msg.delete()
+
 
 @dp.message(and_f(F.reply_to_message, F.text == "/unmute"))
 async def unmute_user(message: Message):
     user_id = message.reply_to_message.from_user.id
     permission = ChatPermissions(can_send_messages=True)
     await message.chat.restrict(user_id=user_id, permissions=permission)
-    await message.answer(f"{message.reply_to_message.from_user.first_name} guruhga yoza olasiz")
+    msg = await message.answer(f"{message.reply_to_message.from_user.first_name} guruhga yoza olasiz")
+    await asyncio.sleep(60)
+    await msg.delete()
+
 
 user_warnings = {}
 
@@ -170,16 +207,21 @@ async def tozalash(message: Message):
             await message.delete()  # So‘kinish xabarini o‘chirib tashlaymiz
 
             if user_warnings[user_id] == 1:
-                await message.answer(f"{message.from_user.mention_html()} ❗ Bu birinchi ogohlantirish! Guruhda so‘kinmang.")
+                first_message = await message.answer(f"{message.from_user.mention_html()} ❗ Bu birinchi ogohlantirish! Guruhda so‘kinmang.")
+                await asyncio.sleep(60)
+                await first_message.delete()
             elif user_warnings[user_id] == 2:
                 until_date = int(time()) + 600  # 10 daqiqaga mute
                 permission = ChatPermissions(can_send_messages=False)
                 await message.chat.restrict(user_id=user_id, permissions=permission, until_date=until_date)
-                await message.answer(f"{message.from_user.mention_html()} 🔇 10 daqiqaga yozish huquqingiz cheklandi!")
+                second_message = await message.answer(f"{message.from_user.mention_html()} 🔇 10 daqiqaga yozish huquqingiz cheklandi!")
+                await asyncio.sleep(60)
+                await second_message.delete()
             elif user_warnings[user_id] >= 3:
                 await message.chat.ban_sender_chat(user_id)  # Butun umrga ban
-                await message.answer(f"{message.from_user.mention_html()} 🚫 Siz guruhdan butunlay bloklandingiz!")
-            
+                third_message = await message.answer(f"{message.from_user.mention_html()} 🚫 Siz guruhdan butunlay bloklandingiz!")
+                await asyncio.sleep(60)
+                third_message.delete()
             break
 
 def create_stat_chart(added, left):
@@ -268,3 +310,4 @@ async def group_statistics(message: Message):
 
     # Statistika va diagrammani yuborish
     await message.answer_photo(photo=FSInputFile(chart_file_path), caption=stats_message, parse_mode="HTML")
+    
