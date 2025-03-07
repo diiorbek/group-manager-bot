@@ -1,6 +1,6 @@
 from aiogram.types import Message
 from aiogram import F
-from loader import dp, db, bot, CHANNELS, ADMINS
+from loader import dp, db, bot, CHANNELS, ADMINS, private
 from aiogram.filters import CommandStart, Command, and_f
 from aiogram.types import InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS group_stats (
 conn.commit()
 
 # /start komandasi
-@dp.message(CommandStart())
+@dp.message(CommandStart(), private)
 async def start_command(message: Message):
     full_name = message.from_user.full_name
     user_name = message.from_user.full_name
@@ -124,7 +124,7 @@ async def set_group_link(message: Message):
     await msg.delete()
     
 # Foydalanuvchini ban qilish
-@dp.message(and_f(F.reply_to_message, F.text == "/ban"))
+@dp.message(and_f(F.reply_to_message, F.text == "/ban"), IsBotAdminFilter(ADMINS))
 async def ban_user(message: Message):
     user_id = message.reply_to_message.from_user.id
     await message.chat.ban_sender_chat(user_id)
@@ -132,7 +132,7 @@ async def ban_user(message: Message):
     await asyncio.sleep(60)
     await txt.delete()
 
-@dp.message(and_f(F.reply_to_message, F.text == "/unban"))
+@dp.message(and_f(F.reply_to_message, F.text == "/unban"), IsBotAdminFilter(ADMINS))
 async def unban_user(message: Message):
     user_id = message.reply_to_message.from_user.id
     await message.chat.unban_sender_chat(user_id)
@@ -163,7 +163,7 @@ async def my_stats(message: Message):
 
 from time import time
 
-@dp.message(and_f(F.reply_to_message, F.text == "/mute"))
+@dp.message(and_f(F.reply_to_message, F.text == "/mute"), IsBotAdminFilter(ADMINS))
 async def mute_user(message: Message):
     user_id = message.reply_to_message.from_user.id
     permission = ChatPermissions(can_send_messages=False)
@@ -175,7 +175,7 @@ async def mute_user(message: Message):
     await msg.delete()
 
 
-@dp.message(and_f(F.reply_to_message, F.text == "/unmute"))
+@dp.message(and_f(F.reply_to_message, F.text == "/unmute"), IsBotAdminFilter(ADMINS))
 async def unmute_user(message: Message):
     user_id = message.reply_to_message.from_user.id
     permission = ChatPermissions(can_send_messages=True)
@@ -188,7 +188,7 @@ async def unmute_user(message: Message):
 user_warnings = {}
 
 from time import time
-xaqoratli_sozlar = {"tentak", "jinni", "to'poy", "axmoq", "ahmoq", "tupoy", "lanati"}
+xaqoratli_sozlar = {"tentak", "jinni", "to'poy", "axmoq", "ahmoq", "tupoy", "lanati", "xarom"}
 
 @dp.message(F.chat.func(lambda chat: chat.type == "supergroup"), F.text)
 async def tozalash(message: Message):
