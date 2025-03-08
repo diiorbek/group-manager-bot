@@ -305,7 +305,6 @@ async def group_statistics(message: Message):
         f"🚪 Jami chiqib ketganlar: {total_left}\n"
         f"📈 O‘sish foizi: {growth:.2f}%\n\n"
         f"🏆 <b>Eng ko‘p odam qo‘shgan:</b>\n{top_adder_text}\n\n"
-        f"👤 <b>Eng ko‘p odam qo‘shganlar:</b>\n{added_by_text}"
     )
 
     # Statistika va diagrammani yuborish
